@@ -4,8 +4,11 @@ import { StatusBar } from 'expo-status-bar'
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { THEME } from "@/constants/theme";
+import { useRouter } from "expo-router";
+
 export default function Page() {
 
+  const router = useRouter()
   
   return (
     <View style={styles.container}>
@@ -33,7 +36,7 @@ export default function Page() {
           <Animated.Text entering={FadeIn.delay(600).springify()} style={styles.punchline}>Every Pixel tells a story</Animated.Text>
 
           <Animated.View entering={FadeIn.delay(800).springify()}>
-            <Pressable style={styles.start_button}>
+            <Pressable style={styles.start_button} onPress={() => router.push('/home')}>
               <Text style={styles.start_text}>Start Explore</Text>
             </Pressable>
           </Animated.View>
