@@ -1,9 +1,9 @@
-import { FlatList, ListRenderItem, Pressable, StyleSheet, Text } from 'react-native'
+import { FlatList, ListRenderItem, Pressable,  Text } from 'react-native'
 import React from 'react'
 import { categoriesData } from '@/constants/data'
-import { hp, wp } from '@/helpers/common'
 import { THEME } from '@/constants/theme'
 import Animated, { FadeInRight } from 'react-native-reanimated'
+import styles from './styles'
 
 
 type CategoriesProps = {
@@ -40,22 +40,3 @@ const Categories: React.FC<CategoriesProps> = ({ activeCategory, handleChangeCat
 
 export default Categories
 
-const styles = StyleSheet.create({
-    container: {
-        paddingHorizontal: wp(4),
-        gap: 8,
-
-    },
-    button: {
-        padding: 12,
-        paddingHorizontal: 15,
-        borderWidth: 1,
-        borderColor: THEME.colors.grayBg,
-        borderRadius: THEME.radius.lg,
-        borderCurve: 'continuous',
-    },
-    category: {
-        fontSize: hp(1.8),
-        fontWeight: THEME.fontWeights.medium,
-    },
-})

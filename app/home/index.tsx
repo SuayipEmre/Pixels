@@ -1,10 +1,12 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import React, { useRef, useState } from 'react'
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather, FontAwesome6, Ionicons } from '@expo/vector-icons'
 import { THEME } from '@/constants/theme'
-import { hp, wp } from '@/helpers/common'
 import Categories from '@/components/categories'
+import { apiCall } from '@/api'
+import styles from './styles'
+import ImageGrid from '@/components/imageGrid'
 
 const HomeScreen = () => {
   const { top } = useSafeAreaInsets()
@@ -12,11 +14,28 @@ const HomeScreen = () => {
   const [search, setSearch] = useState('')
   const searchInputRef = useRef<TextInput>(null);
   const [activeCategory, setActiveCategory] = useState<null | string>(null)
-  console.log(activeCategory);
+  const [images, setImages] = useState<[] | IImage[]>([])
+
+  const handleChangeCategory = (category: string | null) => setActiveCategory(category)
 
 
-  const handleChangeCategory = (category : string | null) =>    setActiveCategory(category)
-  
+  const fetchImages = async (params = { 'page': '1' }, append = false) => {
+    let res = await apiCall(params)
+
+    if (res.success && res.data.hits) {
+
+       if (append) setImages([...images, ...res.data.gits])
+      else setImages(res.data.hits)
+
+    }
+
+
+
+  }
+
+  useEffect(() => {
+    fetchImages()
+  }, [])
 
   return (
     <View style={[{ paddingTop, }, styles.container]}>
@@ -33,8 +52,8 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ gap: 15 }}>
-        {/*Search Bar*/}
 
+        {/*Search Bar*/}
         <View style={styles.search_bar}>
           <View style={styles.search_icon}>
             <Feather name='search' size={24} color={THEME.colors.neutral(0.4)} />
@@ -56,9 +75,17 @@ const HomeScreen = () => {
           }
         </View>
 
+        {/*Categories*/}
         <View style={styles.categories}>
-          <Categories activeCategory={activeCategory} handleChangeCategory = {handleChangeCategory} />
+          <Categories activeCategory={activeCategory} handleChangeCategory={handleChangeCategory} />
         </View>
+
+        {/*Images*/}
+
+        <View>
+          { images?.length > 0 && <ImageGrid images={images} />}
+        </View>
+
 
       </ScrollView>
     </View>
@@ -67,49 +94,3 @@ const HomeScreen = () => {
 
 export default HomeScreen
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    gap: 15,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: wp(4)
-  },
-  title: {
-    fontSize: hp(4),
-    fontWeight: THEME.fontWeights.semibold,
-    color: THEME.colors.neutral(0.9)
-  },
-  search_bar: {
-    marginHorizontal: wp(4),
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: THEME.colors.grayBg,
-    backgroundColor: THEME.colors.white,
-    padding: 6,
-    paddingLeft: 10,
-    borderRadius: THEME.radius.lg
-  },
-  search_icon: {
-    padding: 8,
-  },
-  search_input: {
-    flex: 1,
-    borderRadius: THEME.radius.sm,
-    paddingVertical: 10,
-    fontSize: hp(1.8)
-  },
-  close_icon: {
-    backgroundColor: THEME.colors.neutral(0.1),
-    padding: 8,
-    borderRadius: THEME.radius.sm,
-
-  },
-  categories: {},
-})
