@@ -4,7 +4,9 @@ export const THEME = {
         white : '#fff',
         black : '#000',
         grayBg : '#e5e5e5',
-        neutral : (opacity : number) => `rgba(10, 10, 10, ${opacity})`
+        neutral : (opacity : number) => `rgba(10, 10, 10, ${opacity})`,
+        red: (opacity: number) => `rgba(255, 0, 0, ${opacity})`
+
     },
     fontWeights:{
         medium : 500 as 500, 

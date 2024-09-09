@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather, FontAwesome6, Ionicons } from '@expo/vector-icons'
 import { THEME } from '@/constants/theme'
@@ -7,11 +7,14 @@ import Categories from '@/components/categories'
 import { apiCall } from '@/api'
 import styles from './styles'
 import ImageGrid from '@/components/imageGrid'
+import { debounce } from 'lodash'
+
+let page = 1
 
 const HomeScreen = () => {
   const { top } = useSafeAreaInsets()
   const paddingTop = top > 0 ? top + 10 : 30
-  const [search, setSearch] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const searchInputRef = useRef<TextInput>(null);
   const [activeCategory, setActiveCategory] = useState<null | string>(null)
   const [images, setImages] = useState<[] | IImage[]>([])
@@ -19,12 +22,19 @@ const HomeScreen = () => {
   const handleChangeCategory = (category: string | null) => setActiveCategory(category)
 
 
-  const fetchImages = async (params = { 'page': '1' }, append = false) => {
+  type paramsType = {
+    page?: string | number,
+    q?: string
+  }
+  const fetchImages = async (params: paramsType = { 'page': 1, }, append = false) => {
     let res = await apiCall(params)
+
+    console.log('params : ', params, append);
+
 
     if (res.success && res.data.hits) {
 
-       if (append) setImages([...images, ...res.data.gits])
+      if (append) setImages([...images, ...res.data.gits])
       else setImages(res.data.hits)
 
     }
@@ -36,6 +46,37 @@ const HomeScreen = () => {
   useEffect(() => {
     fetchImages()
   }, [])
+
+
+  const handleSearch = (text: string) => {
+    setSearchTerm(text)
+
+    //search for text
+    if (text.length > 2) {
+      setImages([])
+      page = 1
+      fetchImages({ page, q: text })
+
+    }
+
+    //reset results
+    else if (text == '') {
+      setImages([])
+      page = 1
+    searchInputRef.current?.clear()
+
+      fetchImages({ page })
+    }
+
+  }
+
+  const handleTextDebounce = useCallback(debounce(handleSearch, 400), [])
+
+  const clearSearch = () => {
+    setSearchTerm('')
+    handleTextDebounce('')
+     
+  }
 
   return (
     <View style={[{ paddingTop, }, styles.container]}>
@@ -59,16 +100,16 @@ const HomeScreen = () => {
             <Feather name='search' size={24} color={THEME.colors.neutral(0.4)} />
           </View>
           <TextInput
-            value={search}
+            value={searchTerm}
             ref={searchInputRef}
-            onChangeText={value => setSearch(value)}
+            onChangeText={handleTextDebounce}
             placeholder='Search for photos'
             style={styles.search_input}
           />
           {
-            search && (
+            searchTerm && (
 
-              <Pressable style={styles.close_icon} onPress={() => setSearch('')}>
+              <Pressable style={styles.close_icon} onPress={() => handleTextDebounce('')}>
                 <Ionicons name='close' size={24} color={THEME.colors.neutral(0.6)} />
               </Pressable>
             )
@@ -83,7 +124,11 @@ const HomeScreen = () => {
         {/*Images*/}
 
         <View>
-          { images?.length > 0 && <ImageGrid images={images} />}
+          {
+            images?.length > 0 ?
+              <ImageGrid images={images} /> :
+              searchTerm.length > 0 ? <Text style={styles.cantfound_result_text}>Could not found result for {searchTerm}</Text> : <Text>Gösterilecek image bulunamadı.</Text>
+          } 
         </View>
 
 

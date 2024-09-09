@@ -47,4 +47,10 @@ export default StyleSheet.create({
   
     },
     categories: {},
+    cantfound_result_text:{
+      fontSize : hp(2),
+      fontWeight : THEME.fontWeights.medium,
+      alignSelf :'center',
+      color : THEME.colors.red(0.8)
+    },
   })

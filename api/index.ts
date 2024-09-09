@@ -9,7 +9,7 @@ const apiKey = '45828083-ad7d1f236cec5e309e17b954e'
 const apiUrl = `${baseUrl}?key=${apiKey}`
 
 
-const formatUrl =  (params: Record<string, string>) => {
+const formatUrl =  (params: Record<string, string | number>) => {
     let url = apiUrl + `&per_page=25&safesearch=true&editors_choice=true`
     if (!params) return url
 
@@ -23,7 +23,7 @@ const formatUrl =  (params: Record<string, string>) => {
     
 }
 
-export const apiCall = async  (params: Record<string, string>) => {
+export const apiCall = async  (params: Record<string, string | number>) => {
     try {
         const response = await axios.get(formatUrl(params))
         const {data} = response
