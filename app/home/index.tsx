@@ -10,6 +10,11 @@ import ImageGrid from '@/components/imageGrid'
 import { debounce } from 'lodash'
 
 let page = 1
+type paramsType = {
+  page?: string | number,
+  q?: string
+}
+
 
 const HomeScreen = () => {
   const { top } = useSafeAreaInsets()
@@ -19,18 +24,31 @@ const HomeScreen = () => {
   const [activeCategory, setActiveCategory] = useState<null | string>(null)
   const [images, setImages] = useState<[] | IImage[]>([])
 
-  const handleChangeCategory = (category: string | null) => setActiveCategory(category)
+
+  useEffect(() => {
+    fetchImages()
+  }, [])
 
 
-  type paramsType = {
-    page?: string | number,
-    q?: string
+
+  const handleChangeCategory = (category: string | null) => {
+    setActiveCategory(category)
+    clearSearch()
+    setImages([])
+    page = 1
+    let params: { page: number, category?: string } = {
+      page,
+    }
+
+    if (category) params.category = category
+
+    fetchImages(params, false)
+
   }
+
+
   const fetchImages = async (params: paramsType = { 'page': 1, }, append = false) => {
     let res = await apiCall(params)
-
-    console.log('params : ', params, append);
-
 
     if (res.success && res.data.hits) {
 
@@ -38,14 +56,7 @@ const HomeScreen = () => {
       else setImages(res.data.hits)
 
     }
-
-
-
   }
-
-  useEffect(() => {
-    fetchImages()
-  }, [])
 
 
   const handleSearch = (text: string) => {
@@ -55,7 +66,8 @@ const HomeScreen = () => {
     if (text.length > 2) {
       setImages([])
       page = 1
-      fetchImages({ page, q: text })
+      fetchImages({ page, q: text }, false)
+      setActiveCategory(null)
 
     }
 
@@ -63,9 +75,9 @@ const HomeScreen = () => {
     else if (text == '') {
       setImages([])
       page = 1
-    searchInputRef.current?.clear()
+      searchInputRef.current?.clear()
 
-      fetchImages({ page })
+      fetchImages({ page }, false)
     }
 
   }
@@ -74,9 +86,15 @@ const HomeScreen = () => {
 
   const clearSearch = () => {
     setSearchTerm('')
-    handleTextDebounce('')
-     
+    searchInputRef.current?.clear()
+
+
   }
+
+
+  console.log('search term : ', searchTerm);
+
+
 
   return (
     <View style={[{ paddingTop, }, styles.container]}>
@@ -100,7 +118,6 @@ const HomeScreen = () => {
             <Feather name='search' size={24} color={THEME.colors.neutral(0.4)} />
           </View>
           <TextInput
-            value={searchTerm}
             ref={searchInputRef}
             onChangeText={handleTextDebounce}
             placeholder='Search for photos'
@@ -128,7 +145,7 @@ const HomeScreen = () => {
             images?.length > 0 ?
               <ImageGrid images={images} /> :
               searchTerm.length > 0 ? <Text style={styles.cantfound_result_text}>Could not found result for {searchTerm}</Text> : <Text>Gösterilecek image bulunamadı.</Text>
-          } 
+          }
         </View>
 
 
