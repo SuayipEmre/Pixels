@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather, FontAwesome6, Ionicons } from '@expo/vector-icons'
@@ -7,20 +7,28 @@ import Categories from '@/components/categories'
 import { apiCall } from '@/api'
 import styles from './styles'
 import ImageGrid from '@/components/imageGrid'
-import { debounce } from 'lodash'
+import { debounce, filter } from 'lodash'
+import FiltersModal from '@/components/filtersModal'
+import { BottomSheetModalMethods } from '@gorhom/bottom-sheet/lib/typescript/types'
 
 let page = 1
+
 type paramsType = {
-  page?: string | number,
-  q?: string
-}
+  page?: string | number;
+  q?: string;
+  category?: string;
+} & Partial<IFilterTypes>;
+
 
 
 const HomeScreen = () => {
   const { top } = useSafeAreaInsets()
+  const [isImageFetchingError, setIsImageFetchingError] = useState(false)
   const paddingTop = top > 0 ? top + 10 : 30
   const [searchTerm, setSearchTerm] = useState('')
+  const [filters, setFilters] = useState<null | IFilterTypes>(null)
   const searchInputRef = useRef<TextInput>(null);
+  const modalRef = useRef<BottomSheetModalMethods>(null);
   const [activeCategory, setActiveCategory] = useState<null | string>(null)
   const [images, setImages] = useState<[] | IImage[]>([])
 
@@ -31,31 +39,32 @@ const HomeScreen = () => {
 
 
 
+
+  const fetchImages = async (params: paramsType = { 'page': 1, }, append = false) => {
+    let res = await apiCall(params)
+
+    if (res.success && res.data.hits) {
+      if (append) setImages([...images, ...res.data.gits])
+      else setImages(res.data.hits)
+
+    } else setIsImageFetchingError(true)
+  }
+
+
   const handleChangeCategory = (category: string | null) => {
     setActiveCategory(category)
     clearSearch()
     setImages([])
     page = 1
-    let params: { page: number, category?: string } = {
+    let params: paramsType = {
       page,
+      ...filters
     }
 
     if (category) params.category = category
 
     fetchImages(params, false)
 
-  }
-
-
-  const fetchImages = async (params: paramsType = { 'page': 1, }, append = false) => {
-    let res = await apiCall(params)
-
-    if (res.success && res.data.hits) {
-
-      if (append) setImages([...images, ...res.data.gits])
-      else setImages(res.data.hits)
-
-    }
   }
 
 
@@ -66,7 +75,7 @@ const HomeScreen = () => {
     if (text.length > 2) {
       setImages([])
       page = 1
-      fetchImages({ page, q: text }, false)
+      fetchImages({ ...filters, page, q: text }, false)
       setActiveCategory(null)
 
     }
@@ -77,7 +86,7 @@ const HomeScreen = () => {
       page = 1
       searchInputRef.current?.clear()
 
-      fetchImages({ page }, false)
+      fetchImages({ page, ...filters }, false)
     }
 
   }
@@ -92,10 +101,69 @@ const HomeScreen = () => {
   }
 
 
-  console.log('search term : ', searchTerm);
+
+  const openFiltersModal = () => {
+    modalRef?.current?.present()
+  }
 
 
+  const closeFiltersModal = () => {
+    modalRef?.current?.close()
+  }
 
+
+  const applyFilters = () => {
+
+    if (filters) {
+      page = 1
+      setImages([])
+
+      let params: paramsType = {
+        page,
+        ...filters
+      }
+
+      if (activeCategory) params.category = activeCategory
+      if (searchTerm) params.q = searchTerm
+      fetchImages(params, false)
+    }
+    closeFiltersModal()
+  }
+
+  const resetFilters = () => {
+    setFilters(null)
+    if (filters) {
+      page = 1
+      setImages([])
+      setFilters(null)
+      let params: paramsType = {
+        page,
+      }
+
+      if (activeCategory) params.category = activeCategory
+      if (searchTerm) params.q = searchTerm
+      fetchImages(params, false)
+    }
+    closeFiltersModal()
+
+  }
+
+  const clearThisFilter = (filterName: string) => {
+    if (filters) {
+      let filterz: IFilterTypes = { ...filters }
+      delete filterz[filterName as keyof IFilterTypes]
+      setFilters({ ...filterz })
+      page = 1
+      setImages([])
+      let params: paramsType = {
+        page,
+        ...filterz
+      }
+      if (activeCategory) params.category = activeCategory
+      if (searchTerm) params.q = searchTerm
+      fetchImages(params, false)
+    }
+  }
   return (
     <View style={[{ paddingTop, }, styles.container]}>
       {/*Header */}
@@ -105,12 +173,14 @@ const HomeScreen = () => {
           <Text style={styles.title}>Pixels</Text>
         </Pressable>
 
-        <Pressable>
+        <Pressable onPress={openFiltersModal}>
           <FontAwesome6 name='bars-staggered' size={22} color={THEME.colors.neutral(0.7)} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ gap: 15 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ gap: 15 }}>
 
         {/*Search Bar*/}
         <View style={styles.search_bar}>
@@ -138,18 +208,65 @@ const HomeScreen = () => {
           <Categories activeCategory={activeCategory} handleChangeCategory={handleChangeCategory} />
         </View>
 
-        {/*Images*/}
+        {/*Applied Filters*/}
+        {
+          filters && <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.applied_filters}
+            >
+              {
+                Object.keys(filters).map((key, index) => {
 
+                  let backgroundColor = key == 'colors' && key
+                  return (
+                    <View
+                      key={key}
+                      style={[{}, styles.applied_filter_item]}>
+
+                      {
+                        key == 'colors' ? <View style={{backgroundColor : filters[key], height : 30, width : 30, borderRadius:7,}} /> : <Text style={styles.applied_filter_item_text}>
+                        {filters[key as keyof IFilterTypes]}
+                      </Text>
+                      }
+                      <Pressable style={styles.applied_filter_close_icon}
+                        onPress={() => clearThisFilter(key)}
+                      >
+                        <Ionicons name='close' size={20} color={THEME.colors.neutral(0.6)} />
+                      </Pressable>
+                    </View>
+                  )
+                })
+              }
+            </ScrollView>
+          </View>
+        }
+        {/*Images*/}
         <View>
           {
             images?.length > 0 ?
               <ImageGrid images={images} /> :
-              searchTerm.length > 0 ? <Text style={styles.cantfound_result_text}>Could not found result for {searchTerm}</Text> : <Text>Gösterilecek image bulunamadı.</Text>
+              searchTerm.length > 0 ?
+                <Text style={styles.cantfound_result_text}>Could not found result for {searchTerm}</Text> :
+                isImageFetchingError ?
+                  <Text>An error occured</Text> :
+                  <ActivityIndicator />
           }
         </View>
 
 
       </ScrollView>
+
+      {/*Filters Modal */}
+      <FiltersModal
+        modalRef={modalRef}
+        filters={filters}
+        setFilters={setFilters}
+        onApply={applyFilters}
+        onClose={closeFiltersModal}
+        onReset={resetFilters}
+      />
     </View>
   )
 }
