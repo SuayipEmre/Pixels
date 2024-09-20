@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather, FontAwesome6, Ionicons } from '@expo/vector-icons'
@@ -22,16 +22,18 @@ type paramsType = {
 
 
 const HomeScreen = () => {
-  const { top } = useSafeAreaInsets()
   const [isImageFetchingError, setIsImageFetchingError] = useState(false)
-  const paddingTop = top > 0 ? top + 10 : 30
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState<null | IFilterTypes>(null)
-  const searchInputRef = useRef<TextInput>(null);
-  const modalRef = useRef<BottomSheetModalMethods>(null);
   const [activeCategory, setActiveCategory] = useState<null | string>(null)
   const [images, setImages] = useState<[] | IImage[]>([])
+  const [isEndReached, setIsEndReached] = useState<boolean>(false)
 
+  const { top } = useSafeAreaInsets()
+  const paddingTop = top > 0 ? top + 10 : 30
+  const searchInputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const modalRef = useRef<BottomSheetModalMethods>(null);
 
   useEffect(() => {
     fetchImages()
@@ -39,17 +41,26 @@ const HomeScreen = () => {
 
 
 
-
-  const fetchImages = async (params: paramsType = { 'page': 1, }, append = false) => {
-    let res = await apiCall(params)
-
-    if (res.success && res.data.hits) {
-      if (append) setImages([...images, ...res.data.gits])
-      else setImages(res.data.hits)
-
-    } else setIsImageFetchingError(true)
-  }
-
+  const fetchImages = async (params: paramsType = { page: 1 }, append = false) => {
+    try {
+      const res = await apiCall(params)
+  
+      if (res.success && res.data.hits) {
+        if (append) {
+          setImages((prevImages) => [...prevImages, ...res.data.hits])
+        } else {
+          setImages(res.data.hits)
+        }
+        setIsImageFetchingError(false)
+      } else {
+        setIsImageFetchingError(true)
+      }
+    } catch (error) {
+      console.error('Error fetching images:', error)
+      setIsImageFetchingError(true)
+    }
+  };
+  
 
   const handleChangeCategory = (category: string | null) => {
     setActiveCategory(category)
@@ -164,12 +175,52 @@ const HomeScreen = () => {
       fetchImages(params, false)
     }
   }
+
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+
+    const contentHeight = event.nativeEvent.contentSize.height
+    const scrollViewHeight = event.nativeEvent.layoutMeasurement.height
+    const scrollOffset = event.nativeEvent.contentOffset.y
+    const bottomPosition = contentHeight - scrollViewHeight
+
+    if (scrollOffset >= bottomPosition - 1) {
+      if (!isEndReached) {
+        setIsEndReached(true)
+        console.log('reached the bottom of the scroll view')
+
+        ++page
+        let params: paramsType = {
+          page,
+          ...filters
+        }
+
+        if (activeCategory) params.category = activeCategory
+        if (searchTerm) params.q = searchTerm
+        fetchImages(params, true)
+
+      }
+
+    } else if (isEndReached) {
+      setIsEndReached(false)
+    }
+
+  }
+
+  const handleScrollUp = () => {
+    scrollRef?.current?.scrollTo({
+      y: 0,
+      animated: true
+    })
+  }
+
+  
   return (
     <View style={[{ paddingTop, }, styles.container]}>
       {/*Header */}
 
       <View style={styles.header}>
-        <Pressable>
+        <Pressable onPress={handleScrollUp}>
           <Text style={styles.title}>Pixels</Text>
         </Pressable>
 
@@ -179,7 +230,10 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView
+        onScroll={handleScroll}
+        scrollEventThrottle={5} //how often scrool event willl fire while scrolling (in ms)
         showsVerticalScrollIndicator={false}
+        ref={scrollRef}
         contentContainerStyle={{ gap: 15 }}>
 
         {/*Search Bar*/}
@@ -226,9 +280,9 @@ const HomeScreen = () => {
                       style={[{}, styles.applied_filter_item]}>
 
                       {
-                        key == 'colors' ? <View style={{backgroundColor : filters[key], height : 30, width : 30, borderRadius:7,}} /> : <Text style={styles.applied_filter_item_text}>
-                        {filters[key as keyof IFilterTypes]}
-                      </Text>
+                        key == 'colors' ? <View style={{ backgroundColor: filters[key], height: 30, width: 30, borderRadius: 7, }} /> : <Text style={styles.applied_filter_item_text}>
+                          {filters[key as keyof IFilterTypes]}
+                        </Text>
                       }
                       <Pressable style={styles.applied_filter_close_icon}
                         onPress={() => clearThisFilter(key)}
